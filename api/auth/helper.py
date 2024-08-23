@@ -21,8 +21,11 @@ def create_access_token(user: UserSchema) -> str:
     payload = {
         "sub": user.username,
         "email": user.email,
+        "id": user.id
     }
     return create_token(data=payload, token_type=ACCESS_TOKEN_TYPE, expire_minutes=authSettings.expire_of_access_token_minutes)
+
+
 def create_refresh_token(user: UserSchema) -> str:
     payload = {
         "sub": user.username
@@ -32,7 +35,7 @@ def create_refresh_token(user: UserSchema) -> str:
 
 class TokenInfo(BaseModel):
     access_token: str
-    refresh_token: str
+    refresh_token: str | None = None
     token_type: str = "Bearer"
     
     
