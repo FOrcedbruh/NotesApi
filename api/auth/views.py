@@ -12,7 +12,7 @@ router = APIRouter(prefix="/auth", tags=["Auth"], dependencies=[Depends(actions.
 
 
 @router.post("/registration", response_model=TokenInfo)
-async def registration(response: Response, user_in: UserCreateSchema, session: AsyncSession = Depends(db_core.session_creation)) -> TokenInfo:
+async def registration(response: Response, user_in: UserCreateSchema = Depends(actions.registrationParams), session: AsyncSession = Depends(db_core.session_creation)) -> TokenInfo:
     return await actions.registration(response=response, user_in=user_in, session=session)
     
     
@@ -23,7 +23,8 @@ async def login(response: Response, user_in: UserSchema = Depends(actions.valida
     access_token = create_access_token(user=user_in)
     refresh_token = create_refresh_token(user=user_in)
     
-    response.set_cookie(key="token", value=access_token)
+    response.set_cookie(key="access_token", value=access_token)
+    response.set_cookie(key="refresh_token", value=refresh_token)
     
     return TokenInfo(
         access_token=access_token,
@@ -54,7 +55,17 @@ def get_me(
             "email": authUser.email,
             "gender": authUser.gender
         }
-        
+
+
+@router.post("/refresh", response_model=TokenInfo, response_model_exclude_none=True)
+def auth_refresh(response: Response, user: UserSchema = Depends(actions.get_current_auth_user_for_refresh)):
+    access_token = create_access_token(user=user)
+    
+    response.set_cookie(key="access_token", value=access_token)
+    
+    return TokenInfo(
+        access_token=access_token
+    )
     
 # @router.post("/refresh", response_model=TokenInfo, response_model_exclude_none=True)
 # def auth_refresh_jwt(user: UserSchema) -> TokenInfo:

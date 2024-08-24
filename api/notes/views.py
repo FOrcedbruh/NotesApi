@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from . import actions
 from sqlalchemy.ext.asyncio import AsyncSession
 from .schemas import CreateNote
@@ -38,5 +38,7 @@ async def get_note_by_id(
             
        
 
-
+@router.delete("/erase/{note_id}")
+async def erase_note(note_id: int, session: AsyncSession = Depends(db_core.session_creation), authUser: UserSchema = Depends(get_current_auth_user)):
+    return await actions.erase_note_by_id(session=session, note_id=note_id, user_id=authUser.id)
 

@@ -1,6 +1,6 @@
 from core.models import Note, User
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, Result
+from sqlalchemy import select, Result, delete
 from .schemas import CreateNote, ReadNote
 from fastapi import Form, Depends, HTTPException, status
 from api.auth.actions import get_current_auth_user
@@ -39,11 +39,33 @@ def noteInParams(title: str = Form(), body: str = Form(), authUser: UserSchema =
     }
 
 
-async def create_note(session: AsyncSession, note_in: CreateNote) -> Note:
+async def create_note(session: AsyncSession, note_in: CreateNote) -> dict:
     note = Note(**note_in)
     session.add(note)
     
     
     await session.commit()
     
-    return note
+    return {
+        "status": status.HTTP_201_CREATED,
+        "message": f"Note {note.title} created"
+    }
+
+
+async def erase_note_by_id(session: AsyncSession, note_id: int, user_id: int):
+    
+    NoteToErase: Note = await session.get(Note, note_id)
+    if NoteToErase.user_id == user_id:
+        await session.delete(NoteToErase)
+        await session.commit()
+
+        return {
+            "status": status.HTTP_200_OK,
+            "message": f"Successfully delete {NoteToErase.title}"
+        }
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Acces denied"
+    )
+    
+        

@@ -1,6 +1,6 @@
 from sqlalchemy import select
 from core.models import User
-from .helper import create_access_token, create_refresh_token, TokenInfo
+from .helper import create_access_token, create_refresh_token, TokenInfo, TOKEN_TYPE_KEY, ACCESS_TOKEN_TYPE, REFRESH_TOKEN_TYPE
 from sqlalchemy.ext.asyncio import AsyncSession
 from .schemas import UserLoginSchema, UserCreateSchema, UserSchema
 from .utils import hash_password, decode_jwt, valid_password
@@ -35,6 +35,12 @@ def get_current_token_payload(
 
 async def get_current_auth_user(payload: dict = Depends(get_current_token_payload), session: AsyncSession = Depends(db_core.session_creation)) -> UserSchema:
     username: str | None = payload.get("sub")
+    token_type: str = payload.get(TOKEN_TYPE_KEY)
+    if token_type != ACCESS_TOKEN_TYPE:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token type {token_type}, expected {ACCESS_TOKEN_TYPE}"
+        )
     
     st = await  session.execute(select(User).filter(User.username == username))
     user = st.scalars().first()
@@ -48,9 +54,31 @@ async def get_current_auth_user(payload: dict = Depends(get_current_token_payloa
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="User not found"
     )
+
+async def get_current_auth_user_for_refresh(
+    payload: dict = Depends(get_current_token_payload),
+    session: AsyncSession = Depends(db_core.session_creation)
+):
+    token_type: str = payload.get(TOKEN_TYPE_KEY)
+    if token_type != REFRESH_TOKEN_TYPE:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token type {token_type}, expected {REFRESH_TOKEN_TYPE}"
+        )
+    username: str = payload.get("sub")
+    st = await session.execute(select(User).filter(User.username == username))
+    user = st.scalars().first() 
+    
+    if user:
+        return user
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid token (user not found)"
+    )
     
     
     
+       
 async def validate_auth_user(
     session: AsyncSession = Depends(db_core.session_creation),
     password: str = Form(),
@@ -75,7 +103,21 @@ async def validate_auth_user(
     raise unauthexc
         
     
+def registrationParams(
+        username: str = Form(), 
+        password: str = Form(), 
+        email: str = Form(), 
+        gender: str = Form()
+    ) -> UserCreateSchema:
     
+        return UserCreateSchema(
+            username=username,
+            password=password,
+            gender=gender,
+            email=email
+        )
+
+
 
 async def registration(response: Response, session: AsyncSession, user_in: UserCreateSchema) -> TokenInfo:
     st = await session.execute(select(User).filter(User.username == user_in.username))
@@ -101,6 +143,7 @@ async def registration(response: Response, session: AsyncSession, user_in: UserC
         refresh_token = create_refresh_token(user=user)
         
         response.set_cookie(key="access_token", value=access_token)
+        response.set_cookie(key="refresh)token", value=refresh_token)
             
         return TokenInfo(
             access_token=access_token,

@@ -7,7 +7,7 @@ import datetime
 def encode_jwt(
     payload: dict,
     secret: str = authSettings.secret,
-    algorithm: str =authSettings.algorithm,
+    algorithm: str = authSettings.algorithm,
     expire_minutes: int = authSettings.expire_of_access_token_minutes
 ):
     to_encode = payload.copy()
